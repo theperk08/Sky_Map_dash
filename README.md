@@ -22,6 +22,7 @@ Carte du ciel interactive avec :
 [Viyaleta Apgar sur medium.com](https://viyaleta.medium.com/how-to-make-a-sky-map-in-python-a362bf722bb2)  
 [skyfield](https://rhodesmill.org/skyfield/examples.html#when-is-the-galactic-center-above-the-horizon)
 
-(*DSO = Deep Sky Object : objet du ciel profond, galaxie, nébuleuse, amas...)
-
+(*DSO = Deep Sky Object : objet du ciel profond, galaxie, nébuleuse, amas...)  
+<p align = 'center'><a href="https://sky-map-interactive.onrender.com/" target="_blank">Sky Map Interactive</p>
+  
 <a href="https://sky-map-interactive.onrender.com/" target="_blank"><img src="Sky_map_interactive_2023_10_30.jpg">
