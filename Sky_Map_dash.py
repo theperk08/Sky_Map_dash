@@ -468,14 +468,14 @@ def trace_fig(t, localisation, choix_options, mag_lim, dso_lim, color_sky, color
                      zeroline = False,
                      secondary_y = True
                     )
-    """
+    
     fig.add_trace(go.Scatter(x=[-1, 0, 1], y=[-1, 0, 1],
                              name="yaxis2 data",
                              mode = 'text',
                              text = ['','','']),
                              secondary_y=True,
                  )
-    """    
+        
     return fig
 
 
