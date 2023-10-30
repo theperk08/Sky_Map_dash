@@ -30,9 +30,9 @@ from pytz import timezone
 from dash import Dash, html, dcc, Input, Output, callback, State
 import dash_bootstrap_components as dbc
 
-
+# Tutos/sources :
 # https://viyaleta.medium.com/how-to-make-a-sky-map-in-python-a362bf722bb2
-#https://rhodesmill.org/skyfield/examples.html#when-is-the-galactic-center-above-the-horizon
+# https://rhodesmill.org/skyfield/examples.html#when-is-the-galactic-center-above-the-horizon
 
 # Fichier des villes dont population > 1000 habitants (sinon trop de communes et ralentissement application)
 fichier_communes = 'villes_pop_coord1000.csv'
@@ -105,13 +105,12 @@ champi = wgs84.latlon(49.708217*N, 4.663512*E, elevation_m = 257).at(t)
 #position = champi.from_altaz(alt_degrees = 90, az_degrees = degrees)
 
 # Récupération des positions en provenance du JPL
-
 eph = load('de421.bsp')
 sun = eph['sun']
 earth = eph['earth']
-
 moon = eph['moon']
 
+# infos planètes (et traduction des noms en français)
 planets = ['Mercury', 'Mars Barycenter', 'Venus Barycenter', 'Jupiter Barycenter', 'Saturn Barycenter', 'Uranus Barycenter', 'Neptune Barycenter']
 nom_planets = ['Mercure', 'Mars', 'Venus', 'Jupiter', 'Saturne', 'Uranus', 'Neptune']
 eph_planets = []
@@ -130,17 +129,13 @@ stardata = stardata.set_index('hip_number')
 stardata['nom'] = stardata['nom'].fillna('')
 
 # Ouverture fichier des DSOs
-
 with open('catalog.txt') as f:
     dsodata = dsos_load_dataframe(f)
 
-
 # Récupération des contours des constellations
-
 file_cons = 'constellationship.fab'
 with open(file_cons, 'rb') as f:
-    consdata = stellarium.parse_constellations(f)
-    
+    consdata = stellarium.parse_constellations(f)    
     
 def nuit_noire(jour_midnight, location):
     # pour avoir l'éphéméride du jour des heures de nuit civil, nautique et astronomique
@@ -177,6 +172,10 @@ def nuit_noire(jour_midnight, location):
 
 
 def couleur_ciel(heure, ephem):
+    # histoire de changer la couleur de fond de la carte et du contour
+    # en fonction de l'heure et donc de la luminosité ambiante
+    # mais je ne suis pas un pro du design
+    
     heure = int(''.join(heure.split(':')))
     
     color = "#111111"
@@ -206,8 +205,7 @@ def couleur_ciel(heure, ephem):
     if 'Astronomical twilight ends' in ephem:
         if heure < ephem['Astronomical twilight ends']:
             return ('#1b2134', '#242636', 'crépuscule astronomique / nuit nautique')
-    return (color, colorext, ambiance)
-        
+    return (color, colorext, ambiance)        
    
     return color
     
@@ -224,7 +222,6 @@ def generate_constellation_lines(data, polygon = False):
     if polygon:
         return [xy1]
     else:
-
         # The constellation lines will each begin at the x,y of one star and end
         # at the x,y of another.  We have to "rollaxis" the resulting coordinate
         # array into the shape that matplotlib expects.
@@ -233,6 +230,17 @@ def generate_constellation_lines(data, polygon = False):
 
 
 def trace_fig(t, localisation, choix_options, mag_lim, dso_lim, color_sky, color_externe):
+    """
+    fonction principale du tracé de la carte
+    t = heure de l'observation
+    localisation = lieu d'observation
+    choix_options : pour savoir si on affiche ou pas les tracés des constellations,
+                    la grille azimutale, le nom des étoiles...
+    mag_lim : pour afficher les étoiles ayant une magnitude inférieure à celle choisie
+    dso_lim : pareil pour les DSOs
+    color_sky : couleur de fond de la carte (dans la partie visible, au-dessus de l'horizon)
+    color_externe : couleur de fond de la carte (en dehors de l'horizon)
+    """
     
     # Récupère position du lieu d'observation
     position = localisation.from_altaz(alt_degrees = 90, az_degrees = degrees)
@@ -243,8 +251,7 @@ def trace_fig(t, localisation, choix_options, mag_lim, dso_lim, color_sky, color
     limiting_magnitude = mag_lim #6.0
     dso_limit_magnitude = dso_lim #8.0
 
-    # Calcul coordonnées par projection, pour les étoiles et les DSOs, la Lune, le Soleil
-
+    # Calcul coordonnées par projection, pour les étoiles et les DSOs, la Lune, le Soleil...
     star_positions = earth.at(t).observe(Star.from_dataframe(stardata))
     stardata['x'], stardata['y'] = projection(star_positions)
 
@@ -268,35 +275,22 @@ def trace_fig(t, localisation, choix_options, mag_lim, dso_lim, color_sky, color
      
     
     # Conserve (par masque) uniquement les étoiles dont magnitude inférieure à celle choisie
-
     bright_stars = (stardata.magnitude <= limiting_magnitude)
     magnitude = stardata['magnitude'][bright_stars]
-    star_size = (0.5 + limiting_magnitude - magnitude) ** 2.0
-    star_size = magnitude.apply(lambda x : max(1, 12 - x)) 
-    criteria = [magnitude.between(-30, 1),magnitude.between(1, 3), magnitude.between(3, 5), magnitude.between(5, 25)]
-    values = [15, 10, 6, 1]
-
-    star_size = np.select(criteria, values, 0)
-    
     max_star_size = 15
     star_size = max_star_size * 10 ** (magnitude / -3.5)
 
+    # Pareil pour les DSOs mais autre manière de faire pour la taille d'affichage
     bright_dsos = (dsodata.magnitude <= dso_limit_magnitude)
     dso_magnitude = dsodata['magnitude'][bright_dsos]
     dso_size = (0.9 + dso_limit_magnitude - dso_magnitude) ** 2.0
     criteria = [dso_magnitude.between(1, 4), dso_magnitude.between(4, 6), dso_magnitude.between(6, 8), dso_magnitude.between(8, 10), dso_magnitude.between(10, 12), dso_magnitude.between(12, 30)]
     values = [12, 8, 6, 4, 2, 1]
-    dso_size = np.select(criteria, values, 0)
-    #dso_size = 20 - 1.5*dso_magnitude
-    
-    #max_dso_size = 30
-    #dso_size = max_dso_size * 10 ** (dso_magnitude / -3.5)
+    dso_size = np.select(criteria, values, 0) 
 
-
-    #fig = go.Figure(layout = layout)
+    # besoin d'un subplot pour afficher axe à droite (juste pour marquer le repère Ouest)
     fig = make_subplots(specs=[[{"secondary_y": True}]])
-    #fig.update_layout(layout=layout)
-    #fig.data = []
+    
     fig.update_layout(autosize=True,
                         width = 750,
                         height = 750,
@@ -330,7 +324,7 @@ def trace_fig(t, localisation, choix_options, mag_lim, dso_lim, color_sky, color
                 showlegend = False))
 
         # Tracé des lignes d'azimuths
-        for az in range(0,360,30):
+        for az in range(0, 360, 30):  #tous les 30 degrés c'est déjà suffisant
             h0 = projection(localisation.from_altaz(alt_degrees = 0, az_degrees = az))
             horizon_x = [h0[0]]
             horizon_y = [h0[1]]
@@ -348,7 +342,7 @@ def trace_fig(t, localisation, choix_options, mag_lim, dso_lim, color_sky, color
                 line = go.scatter.Line(color = "grey", dash = 'dash'),
                 showlegend = False))
         
-    # Tracé de l'horizon  
+    # Tracé de l'horizon (juste un cercle)
     fig.add_shape(type = "circle", xref = "x", yref = "y", fillcolor = color_sky,  opacity = 0.3,  x0 = -1, y0 = -1, x1 = 1, y1 = 1, line_color = "LightSeaGreen")
     
     # Tracé des constellations
@@ -363,12 +357,10 @@ def trace_fig(t, localisation, choix_options, mag_lim, dso_lim, color_sky, color
                     y = hy,
                     text = [nom],
                     textfont_color = 'white',
-                    mode = "lines",                  
-                    
+                    mode = "lines", 
                     line = go.scatter.Line(color = "lightgrey", width = 1, dash = 'dash'),
                     hovertemplate='%{text}',
-                    showlegend = False))
-  
+                    showlegend = False))  
     
     # ajout de la Lune   
     if 'nom_planet' in choix_options:
@@ -384,6 +376,7 @@ def trace_fig(t, localisation, choix_options, mag_lim, dso_lim, color_sky, color
                              hovertemplate='%{text}',
                              name ='', # pour supprimer le nom de la trace dans l'infobulle
                              marker = dict(size = 15, color = 'white')))
+    
     # ajout du soleil   
     if 'nom_planet' in choix_options:
         mode = 'markers+text'
@@ -419,13 +412,13 @@ def trace_fig(t, localisation, choix_options, mag_lim, dso_lim, color_sky, color
     if dso_magnitude.shape[0] >= 1 :
         fig.add_trace(go.Scatter(x = list(dsodata['x'][bright_dsos].values), y = list(dsodata['y'][bright_dsos].values),
                                  mode = mode,
-                             text = dsodata['label'][bright_dsos] ,
-                             meta = '<br>(magnitude ' + dsodata['magnitude'][bright_dsos].apply(lambda x :str(x)) + ')',
-                             textposition = 'bottom center',
-                             textfont_color = 'red',
-                             hovertemplate = '%{text}%{meta}',                             
-                             name = '',
-                             marker = dict(size = dso_size, color = 'red'))) #dso_size
+                                 text = dsodata['label'][bright_dsos] ,
+                                 meta = '<br>(magnitude ' + dsodata['magnitude'][bright_dsos].apply(lambda x :str(x)) + ')',
+                                 textposition = 'bottom center',
+                                 textfont_color = 'red',
+                                 hovertemplate = '%{text}%{meta}',                             
+                                 name = '',
+                                 marker = dict(size = dso_size, color = 'red'))) 
         
     # Tracé des étoiles
     if 'nom_etoile' in choix_options:
@@ -441,16 +434,14 @@ def trace_fig(t, localisation, choix_options, mag_lim, dso_lim, color_sky, color
                              meta = '<br>(magnitude ' + stardata['magnitude'][bright_stars].apply(lambda x: str(x)) + ')',
                              hovertemplate='%{text}%{meta}',
                              name ='', # pour supprimer le nom de la trace dans l'infobulle
-                             marker = dict(size = star_size, color = 'white')))
-      
+                             marker = dict(size = star_size, color = 'white')))      
    
         
     # Tracé final en tenant compte des limites de vue
     angle = np.pi - field_of_view_degrees / 360.0 * np.pi
     limit = np.sin(angle) / (1.0 - np.cos(angle))
     
-    # Ajout des repères cardinaux
-    
+    # Ajout des repères cardinaux (beaucoup de code pour pas grand chose ;-)    
     fig.update_xaxes(range = (-limit, limit),
                      #showticklabels = False,
                      ticktext=["", "S", ""],
@@ -477,14 +468,14 @@ def trace_fig(t, localisation, choix_options, mag_lim, dso_lim, color_sky, color
                      zeroline = False,
                      secondary_y = True
                     )
-    fig.add_trace(go.Scatter(x=[-1,0,1], y=[-1,0,1],
+    """
+    fig.add_trace(go.Scatter(x=[-1, 0, 1], y=[-1, 0, 1],
                              name="yaxis2 data",
                              mode = 'text',
                              text = ['','','']),
                              secondary_y=True,
                  )
-    
-    
+    """    
     return fig
 
 
@@ -501,7 +492,8 @@ def trace_fig_bar_data(df_data, mag_lim, titre):
         df2 = df2.rename(columns = {"magnitude" : "compte_mag"})
 
         fig3 = px.bar(df2, y = 'mag_range', x = 'compte_mag', text = 'compte_mag', orientation = 'h', color_discrete_sequence =['navy']*len(df2))
-        
+    
+    # si pas d'étoile ou de DSO, afficher un graphique vide
     else:
         fig3 = px.bar(pd.DataFrame({'x' : [0], 'y' : [0]}), y = "y", x = "x", orientation = 'h')
         fig3.update_yaxes(visible = False, showgrid= False)
@@ -516,7 +508,7 @@ def trace_fig_bar_data(df_data, mag_lim, titre):
     
     return fig3
 
-
+# figures initiales au lancement du programme
 fig_sky = trace_fig(t, champi, ['constel'], 5.0, 8.0, "#000023", "#000023")
 fig_star = trace_fig_bar_data(stardata, 5.0, "Nombre d'étoiles\n ")
 fig_dso = trace_fig_bar_data(dsodata, 8.0, "Nombre de DSO")
@@ -599,7 +591,7 @@ app.layout = dbc.Container([
                 width = 3),
         
         dbc.Col(
-            # choix de la date ;-))
+            # choix de la date ;-)))
             dcc.DatePickerSingle(id ='date-picker',
                                  month_format = 'MMMM YYYY',
                                  placeholder = 'DD MM YYYY',
@@ -711,16 +703,21 @@ def update_graph( location, date1, heure1, choix_options, maglim, dsolim, opt):
     
     lieu = [x['label'] for x in opt if x['value'] == location]
     retour = 'Carte du Ciel vue de ' +  str(lieu[0]) + '\n le ' + date1.split('-')[2] + ' ' + nom_mois[int(date1.split('-')[1])-1] + ' ' + date1.split('-')[0] + ' à ' + heure1 
-    
+
+    # récupération du jour et de l'heure
     zone = timezone('Europe/Paris')
     ts = load.timescale()    
     t = ts.from_datetime(zone.localize(datetime(int(date1.split('-')[0]), int(date1.split('-')[1]), int(date1.split('-')[2]), int(heure1.split(':')[0]), int(heure1.split(':')[1]), 0)))#(2023, 10, 26, 23, 0, 0)))
+    
+    # récupération coord du lieu d'observation
     lati, longi = map(float,location.split('/'))
     lat = N if lati > 0 else S
     lon = E if longi > 0 else W
     localisation = wgs84.latlon(lati * lat, 
                                 longi * lon,
                                 elevation_m = 100).at(t) 
+    
+    # minuit du jour pour le calcul d'éphémeride
     jour_minuit = zone.localize(datetime(int(date1.split('-')[0]), int(date1.split('-')[1]), int(date1.split('-')[2]), 0, 0, 0))
     
     # récupère éphéméride du jour
@@ -728,8 +725,8 @@ def update_graph( location, date1, heure1, choix_options, maglim, dsolim, opt):
     
     # pour savoir quelle couleur de fond de ciel attribuer
     colorsky, colorexterne, ambiance = couleur_ciel(heure1, dico_ephem)
-    #print(colorsky, colorexterne, ambiance)
     
+    # tracés des figures
     fig_sky = trace_fig(t, localisation, choix_options, maglim, dsolim, colorsky, colorexterne)
     fig_stars = trace_fig_bar_data(stardata, maglim, "Nombre d'étoiles\n ")
     fig_dsos = trace_fig_bar_data(dsodata, dsolim, "Nombre de DSO")
